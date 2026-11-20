@@ -1,0 +1,49 @@
+# Replays recorded traffic against main and this pull request, and fails the
+# check when a response changes in a breaking way.
+#
+# One-time setup in this repository (Settings > Secrets and variables > Actions):
+#   Variables: REPLAYGATE_API_URL, REPLAYGATE_PROJECT_ID
+#   Secret:    REPLAYGATE_API_KEY
+name: replay-gate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # to post the report comment
+
+jobs:
+  replay-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }} # the baseline: what main does today
+          path: baseline
+      - uses: actions/checkout@v4
+        with:
+          path: candidate # the pull request
+
+      - name: Start the baseline on :3001
+        working-directory: baseline
+        run: PORT=3001 nohup python3 server.py > "$RUNNER_TEMP/baseline.log" 2>&1 &
+      - name: Start the candidate on :3002
+        working-directory: candidate
+        run: PORT=3002 nohup python3 server.py > "$RUNNER_TEMP/candidate.log" 2>&1 &
+      - name: Wait until both answer
+        run: |
+          for port in 3001 3002; do
+            for i in $(seq 1 30); do curl -fs "http://localhost:$port/healthz" >/dev/null && break; sleep 1; done
+            curl -fs "http://localhost:$port/healthz" >/dev/null || { echo "port $port never answered"; exit 1; }
+          done
+
+      - uses: Sangsty/replaygate@v0.1.0
+        with:
+          version: v0.1.0
+          api-url: ${{ vars.REPLAYGATE_API_URL }}
+          project-id: ${{ vars.REPLAYGATE_PROJECT_ID }}
+          api-key: ${{ secrets.REPLAYGATE_API_KEY }}
+          baseline-url: http://localhost:3001
+          candidate-url: http://localhost:3002
+          dashboard-url: ${{ vars.REPLAYGATE_API_URL }}
