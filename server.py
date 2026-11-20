@@ -40,5 +40,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(out)
 
 
+class Server(http.server.ThreadingHTTPServer):
+    # The default listen backlog is 5: a burst of concurrent requests overflows
+    # it and the OS retries the dropped connections after a full second.
+    request_queue_size = 128
+
+
 if __name__ == "__main__":
-    http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    Server(("127.0.0.1", PORT), Handler).serve_forever()
