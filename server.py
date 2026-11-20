@@ -10,7 +10,7 @@ PORT = int(os.environ.get("PORT", "3001"))
 
 
 def user(n):
-    return {"id": n, "name": f"user {n}", "age": 20 + n, "ts": time.time_ns(), "tags": ["a", "b"]}
+    return {"id": n, "age": 20 + n, "ts": time.time_ns(), "tags": ["a", "b"]}
 
 
 def order(n):
